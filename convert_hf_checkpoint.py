@@ -8,7 +8,7 @@ import shutil
 weight_map = {
     'tok_embeddings.weight': 'word_embeddings.weight',
     'layers.{}.attention.wq.weight': 'layers.{}.self_attn.linear_q.weight',
-    'layers.{}.attention.wk.weight': 'layers.{}.self_attn.linear_w.weight',
+    'layers.{}.attention.wk.weight': 'layers.{}.self_attn.linear_k.weight',
     'layers.{}.attention.wv.weight': 'layers.{}.self_attn.linear_v.weight',
     'layers.{}.attention.wo.weight': 'layers.{}.self_attn.fc.weight',
     'layers.{}.feed_forward.w1.weight': 'layers.{}.ff.linear1.0.weight',

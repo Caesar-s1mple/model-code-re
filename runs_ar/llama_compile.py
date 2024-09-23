@@ -4,6 +4,7 @@ from models import LLaMA
 from models.utils import Config, WeightOnlyInt8QuantHandler, get_tokenizer, set_seed, sample, norm_logits
 from typing import Optional
 from torch import Tensor
+from pathlib import Path
 
 default_device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -33,7 +34,7 @@ def decode_one_token(model: LLaMA, input_id: Tensor, input_pos: Tensor, temperat
 
 
 @torch.no_grad()
-def generate(model: LLaMA, prompt: Tensor, max_new_tokens: int, temperature: float = 1, top_k: int = 0,
+def generate(model: LLaMA, prompt: Tensor, max_new_tokens: int, temperature: float = 1., top_k: int = 0,
              top_p: float = 0.):
     T = prompt.size(-1)
     T_new = T + max_new_tokens
@@ -64,7 +65,7 @@ def generate(model: LLaMA, prompt: Tensor, max_new_tokens: int, temperature: flo
     return seq
 
 
-def load_model(config_path, checkpoint_path, quantize: Optional[str] = None, device: str = default_device):
+def load_model(config_path: Path, checkpoint_path: Path, quantize: Optional[str] = None, device: str = default_device):
     with torch.device('meta'):
         model = LLaMA(Config(config_path))
 
@@ -80,13 +81,13 @@ def load_model(config_path, checkpoint_path, quantize: Optional[str] = None, dev
     return model.eval()
 
 
-def main(prompt: str, max_new_tokens: int, config_path: str, checkpoint_path: str, num_samples: int = 1,
-         quantize: Optional[str] = None, device: str = default_device):
+def main(prompt: str, max_new_tokens: int, config_path: Path, checkpoint_path: Path, num_samples: int = 3,
+         quantize: Optional[str] = None, device: str = default_device, temperature: float = 1., top_k: int = 0, top_p: float = 0.):
     model = load_model(config_path, checkpoint_path, quantize, device)
 
     device_sync(device)
 
-    tokenizer = get_tokenizer('../models/checkpoints/Meta-Llama-3-8B/original/tokenizer.model', model_name='llama-3')
+    tokenizer = get_tokenizer(checkpoint_path.parent / 'tokenizer.model', model_name='llama-3')
     prompt = tokenizer.encode(prompt)
 
     set_seed(20010101)
@@ -100,8 +101,11 @@ def main(prompt: str, max_new_tokens: int, config_path: str, checkpoint_path: st
         t0 = time.perf_counter()
         output_ids = generate(
             model,
-            prompt,
-            max_new_tokens
+            prompt=prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p
         )
         if i == -1:
             print(f'Compilation time: {time.perf_counter() - t0:.2f} seconds')
@@ -116,9 +120,9 @@ def main(prompt: str, max_new_tokens: int, config_path: str, checkpoint_path: st
 
 if __name__ == '__main__':
     main(prompt='Hello, my name is',
-         max_new_tokens=500,
-         config_path='../models/config/llama-3-8b_compile.json',
-         checkpoint_path='../models/checkpoints/Meta-Llama-3-8B/convert/model.pth',
+         max_new_tokens=200,
+         config_path=Path('../models/config/llama-3-8b_compile.json'),
+         checkpoint_path=Path('../checkpoints/Meta-Llama-3-8B/convert/model.pth'),
          num_samples=5,
          quantize='int8',
          device='cuda:0')
