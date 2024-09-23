@@ -1,7 +1,8 @@
 import time
 import torch
 from models import LLaMA
-from models.utils import Config, WeightOnlyInt8QuantHandler, get_tokenizer, set_seed, sample, norm_logits
+from models.utils import Config, WeightOnlyInt8QuantHandler, WeightOnlyInt4QuantHandler, get_tokenizer, set_seed, \
+    sample, norm_logits
 from typing import Optional
 from torch import Tensor
 from pathlib import Path
@@ -21,7 +22,7 @@ def model_forward(model: LLaMA, input_ids: Tensor, input_pos: Tensor):
 def prefill(model: LLaMA, input_ids: Tensor, input_pos: Tensor, temperature: float = 1, top_k: int = 0,
             top_p: float = 0.):
     logits = model(input_ids, input_pos)
-    logits = norm_logits(logits, temperature, top_k, top_p)
+    logits = norm_logits(logits[:, -1, :], temperature, top_k, top_p)
     return sample(logits)
 
 
@@ -29,7 +30,7 @@ def decode_one_token(model: LLaMA, input_id: Tensor, input_pos: Tensor, temperat
                      top_p: float = 0.):
     assert input_pos.size(-1) == 1
     logits = model(input_id, input_pos)
-    logits = norm_logits(logits, temperature, top_k, top_p)
+    logits = norm_logits(logits[:, -1, :], temperature, top_k, top_p)
     return sample(logits)
 
 
@@ -55,7 +56,7 @@ def generate(model: LLaMA, prompt: Tensor, max_new_tokens: int, temperature: flo
 
     new_tokens = []
     for i in range(max_new_tokens - 1):
-        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_mem_efficient=False, enable_math=True):
+        with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_mem_efficient=False, enable_math=True):
             next_token = decode_one_token(model, next_token.view(1, -1), input_pos, temperature, top_k, top_p)
             input_pos += 1
             new_tokens.append(next_token.clone())
@@ -70,25 +71,29 @@ def load_model(config_path: Path, checkpoint_path: Path, quantize: Optional[str]
         model = LLaMA(Config(config_path))
 
     if quantize == 'int8':
-        int8_quantizer = WeightOnlyInt8QuantHandler(model)
-        model = int8_quantizer.convert_for_runtime()
+        quantizer = WeightOnlyInt8QuantHandler(model)
+        model = quantizer.convert_for_runtime()
+    elif quantize == 'int4':
+        quantizer = WeightOnlyInt4QuantHandler(model)
+        model = quantizer.convert_for_runtime()
 
     checkpoint = torch.load(checkpoint_path, mmap=True, weights_only=True)
-    if "model" in checkpoint and "stories" in str(checkpoint_path):
-        checkpoint = checkpoint["model"]
+    # if "model" in checkpoint and "stories" in str(checkpoint_path):
+    #     checkpoint = checkpoint["model"]
     model.load_state_dict(checkpoint, assign=True)
     model = model.to(device=device, dtype=torch.bfloat16)
     return model.eval()
 
 
 def main(prompt: str, max_new_tokens: int, config_path: Path, checkpoint_path: Path, num_samples: int = 3,
-         quantize: Optional[str] = None, device: str = default_device, temperature: float = 1., top_k: int = 0, top_p: float = 0.):
+         quantize: Optional[str] = None, device: str = default_device, temperature: float = 1., top_k: int = 0,
+         top_p: float = 0.):
     model = load_model(config_path, checkpoint_path, quantize, device)
 
     device_sync(device)
 
     tokenizer = get_tokenizer(checkpoint_path.parent / 'tokenizer.model', model_name='llama-3')
-    prompt = tokenizer.encode(prompt)
+    prompt = tokenizer.encode(prompt).to(device)
 
     set_seed(20010101)
 

@@ -14,11 +14,11 @@ class Config:
             self.config = json.load(f)
 
     def __getattr__(self, item):
-        return self.config[item]
+        return self.config.get(item, None)
 
 
 def sample(probs: torch.Tensor, num_samples: int = 1):
-    idx = torch.multinomial(probs, num_samples=num_samples)
+    idx = torch.multinomial(probs.view(-1, probs.size(-1)), num_samples=num_samples)
 
     return idx
 
@@ -27,7 +27,7 @@ def norm_logits(logits: torch.Tensor, temperature: float = 1, top_k: int = 0, to
     logits = logits / temperature
     if top_k > 0:
         filter = torch.topk(logits, min(top_k, logits.size(-1)))[0]
-        logits[logits < filter[:, [-1]]] = -torch.inf
+        logits[logits < filter.select(-1, -1).unsqueeze(-1)] = -torch.inf
 
     if top_p > 0.:
         sorted_logits, sorted_indices = torch.sort(logits, descending=True)

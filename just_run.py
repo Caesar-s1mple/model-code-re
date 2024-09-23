@@ -1,6 +1,7 @@
 import argparse
 import torch
 import importlib
+from pathlib import Path
 
 default_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -15,12 +16,12 @@ if __name__ == '__main__':
     parser.add_argument('--top_p', type=float, default=0.)
     parser.add_argument('--device', type=str, default=default_device)
 
+    parser.add_argument('--model', type=str, default='llama_compile')
     parser.add_argument('--config_path', type=str, default='./models/config/llama-3-8b_compile.json')
-    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/Meta-Llama-3-8B/convert/model.pth')
-    parser.add_argument('--quantize', type=str, default=None, choices=['int8'])
+    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/Meta-Llama-3-8B/convert/model_int8.pth')
+    parser.add_argument('--quantize', type=str, default='int8', choices=[None, 'int8', 'int4'])
 
     parser.add_argument('--sample_strategy', type=str, default='ar', choices=['ar', 'ss'])
-    parser.add_argument('--model', type=str, default='llama_compile')
 
     args = parser.parse_args()
 
@@ -34,8 +35,8 @@ if __name__ == '__main__':
                     top_k=args.top_k,
                     top_p=args.top_p,
                     device=args.device,
-                    config_path=args.config_path,
-                    checkpoint_path=args.checkpoint_path,
+                    config_path=Path(args.config_path),
+                    checkpoint_path=Path(args.checkpoint_path),
                     quantize=args.quantize
                     )
     elif args.sample_strategy == 'ss':
@@ -48,9 +49,9 @@ if __name__ == '__main__':
                     top_k=args.top_k,
                     top_p=args.top_p,
                     device=args.device,
-                    config_path=args.config_path,
-                    checkpoint_path=args.checkpoint_path,
-                    draft_config_path=args.draft_config_path,
-                    draft_checkpoint_path=args.draft_checkpoint_path,
+                    config_path=Path(args.config_path),
+                    checkpoint_path=Path(args.checkpoint_path),
+                    draft_config_path=Path(args.draft_config_path),
+                    draft_checkpoint_path=Path(args.draft_checkpoint_path),
                     quantize=args.quantize
                     )

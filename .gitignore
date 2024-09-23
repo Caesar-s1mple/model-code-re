@@ -5,6 +5,7 @@
 *.safetensors
 *.pth
 *.pt
+*.model
 
 # Checkpoints
 checkpoints/*

@@ -1,6 +1,5 @@
 import os
 import torch
-from models import LLaMA
 from pathlib import Path
 import re
 import shutil
@@ -23,7 +22,7 @@ weight_map = {
 
 def convert(hf_repo_path: Path):
     original_weights_path = hf_repo_path / 'original' / 'consolidated.00.pth'
-    original_weights = torch.load(original_weights_path, map_location='cpu')
+    original_weights = torch.load(original_weights_path, map_location='cpu', weights_only=True)
 
     new_state_dict = {}
     for name, param in original_weights.items():
@@ -35,7 +34,6 @@ def convert(hf_repo_path: Path):
             layer_num = re.search(r'\d+', name).group(0)
             new_state_dict[weight_map[abstract_name].format(layer_num)] = param
 
-    print(new_state_dict)
     os.makedirs(hf_repo_path / 'convert', exist_ok=True)
     torch.save(new_state_dict, hf_repo_path / 'convert' / 'model.pth')
     shutil.copy(hf_repo_path / 'original' / 'tokenizer.model', hf_repo_path / 'convert' / 'tokenizer.model')

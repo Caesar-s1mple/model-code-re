@@ -29,6 +29,12 @@ class LLaMA(nn.Module):
         self.max_batch_size = max_batch_size
         head_dim = self.config.embedding_dim // self.config.num_heads
         dtype = self.linear.weight.dtype
+
+        if hasattr(self.linear, 'scales'):
+            dtype = self.linear.scales.dtype
+        elif hasattr(self.linear, 'scales_and_zeros'):
+            dtype = self.linear.scales_and_zeros.dtype
+
         for layer in self.layers:
             layer.self_attn.kv_cache = KVCache(max_batch_size, max_seq_len, self.config.num_kv_heads, head_dim,
                                                dtype)
@@ -85,17 +91,22 @@ class GroupedMultiQueryAttention(nn.Module):
         self._register_load_state_dict_pre_hook(self.load_hook)
 
     def load_hook(self, state_dict, prefix, *args):
-        if prefix + "linear_q.weight" in state_dict:
-            wq = state_dict.pop(prefix + "linear_q.weight")
-            wk = state_dict.pop(prefix + "linear_k.weight")
-            wv = state_dict.pop(prefix + "linear_v.weight")
-            state_dict[prefix + "linear_qkv.weight"] = torch.cat([wq, wk, wv])
+        if prefix + 'linear_q.weight' in state_dict:
+            wq = state_dict.pop(prefix + 'linear_q.weight')
+            wk = state_dict.pop(prefix + 'linear_k.weight')
+            wv = state_dict.pop(prefix + 'linear_v.weight')
+            state_dict[prefix + 'linear_qkv.weight'] = torch.cat([wq, wk, wv])
+        if prefix + 'linear_q.scales' in state_dict:
+            scale_q = state_dict.pop(prefix + 'linear_q.scales')
+            scale_k = state_dict.pop(prefix + 'linear_k.scales')
+            scale_v = state_dict.pop(prefix + 'linear_v.scales')
+            state_dict[prefix + 'linear_qkv.scales'] = torch.cat([scale_q, scale_k, scale_v])
 
     def forward(self, x: Tensor, attention_mask: Tensor, freqs_cis: Tensor, input_pos: Optional[Tensor] = None):
         bs = x.size(0)
 
         kv_size = self.num_kv_heads * self.head_dim
-        query, key, value = self.linear_qkv(x).split([self.head_dim, kv_size, kv_size], dim=-1)
+        query, key, value = self.linear_qkv(x).split([self.embedding_dim, kv_size, kv_size], dim=-1)
 
         query = query.view(bs, -1, self.num_heads, self.head_dim)
         key = key.view(bs, -1, self.num_kv_heads, self.head_dim)
@@ -109,12 +120,12 @@ class GroupedMultiQueryAttention(nn.Module):
         if self.kv_cache is not None:
             key, value = self.kv_cache.update(key, value, input_pos)
 
-        key = key.repeat_interleave(self.num_heads // self.num_kv_heads, dim=-1)
-        value = value.repeat_interleave(self.num_heads // self.num_kv_heads, dim=-1)
+        key = key.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
+        value = value.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
 
         attention_score = query @ key.transpose(-2, -1) / math.sqrt(self.embedding_dim)
         if attention_mask is not None:
-            attention_score.masked_fill_(attention_mask.unsqueeze(1) == 0, -torch.inf)
+            attention_score.masked_fill_(attention_mask == 0, -torch.inf)
 
         attention_score = torch.softmax(attention_score, dim=-1)
         output = attention_score @ value
