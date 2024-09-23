@@ -11,8 +11,15 @@
 
     Transformer
     BERT
-    VisionTransformer
+    VisionTransformer               不包含推理代码
     Llama-3
+
+预计在不久加入：
+
+    1. 测试推理加速的Benchmark
+    2. 训练代码：SFT、LoRA。
+    3. 更多的模型
+    
 
 ## 1. 项目结构说明
 
