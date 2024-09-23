@@ -1,0 +1,18 @@
+# PyCharm
+.idea/
+
+# Models
+*.safetensors
+*.pth
+*.pt
+
+# Checkpoints
+checkpoints/*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test scripts
+test*.py
