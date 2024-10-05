@@ -4,7 +4,7 @@ from torch import Tensor
 import torch.nn.functional as F
 
 
-class WeightOnlyInt8QuantHandler:
+class Int8QuantHandler:
     def __init__(self, model):
         self.model = model
 
@@ -19,8 +19,29 @@ class WeightOnlyInt8QuantHandler:
         return cur_state_dict
 
     def convert_for_runtime(self):
-        replace_linear_weight_only_int8_per_channel(self.model)
+        replace_linear_int8_per_channel(self.model)
         return self.model
+
+
+class Int8Linear(nn.Module):
+    __constants__ = ['in_features', 'out_features']
+    in_features: int
+    out_features: int
+    weight: Tensor
+    bias: Tensor
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 device=None, dtype=None) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.register_buffer("weight", torch.empty((out_features, in_features), dtype=torch.int8))
+        self.register_buffer("bias", torch.empty(out_features, dtype=dtype))
+        self.register_buffer("scales", torch.ones(out_features, dtype=dtype))
+
+    def forward(self, input: Tensor) -> Tensor:
+        return F.linear(input, self.weight.to(dtype=input.dtype)) * self.scales + self.bias
 
 
 class WeightOnlyInt8Linear(nn.Module):
@@ -36,9 +57,9 @@ class WeightOnlyInt8Linear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.register_buffer("weight", torch.empty((out_features, in_features), dtype=torch.int8))
-        self.register_buffer("scales", torch.ones(out_features, dtype=torch.bfloat16))
+        self.register_buffer("scales", torch.ones(out_features, dtype=dtype))
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         return F.linear(input, self.weight.to(dtype=input.dtype)) * self.scales
 
 
@@ -96,7 +117,7 @@ class WeightOnlyInt4Linear(torch.nn.Module):
     __constants__ = ['in_features', 'out_features']
     in_features: int
     out_features: int
-    weight: torch.Tensor
+    weight: Tensor
 
     def __init__(
             self, in_features: int, out_features: int,
@@ -126,7 +147,7 @@ class WeightOnlyInt4Linear(torch.nn.Module):
             torch.empty((in_features // groupsize, out_features, 2), dtype=torch.bfloat16)
         )
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         input = input.to(torch.bfloat16)
         if self.padding:
             import torch.nn.functional as F
@@ -255,12 +276,15 @@ def group_quantize_tensor(w, n_bit=4, groupsize=128):
     return w_int32, scales_and_zeros
 
 
-def replace_linear_weight_only_int8_per_channel(model: nn.Module):
+def replace_linear_int8_per_channel(model: nn.Module, dtype=torch.bfloat16):
     for name, child in model.named_children():
         if isinstance(child, nn.Linear):
-            setattr(model, name, WeightOnlyInt8Linear(child.in_features, child.out_features))
+            if child.bias is not None:
+                setattr(model, name, Int8Linear(child.in_features, child.out_features, dtype=child.weight.dtype))
+            else:
+                setattr(model, name, WeightOnlyInt8Linear(child.in_features, child.out_features, dtype=child.weight.dtype))
         else:
-            replace_linear_weight_only_int8_per_channel(child)
+            replace_linear_int8_per_channel(child, dtype)
 
 
 def dynamically_quantize_per_channel(x, quant_min, quant_max, target_dtype):

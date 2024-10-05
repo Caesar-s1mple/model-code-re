@@ -1,3 +1,4 @@
+import json
 import os
 import sentencepiece as spm
 import tiktoken
@@ -8,8 +9,8 @@ from pathlib import Path
 
 
 class TokenizerInterface:
-    def __init__(self, model_path):
-        self.model_path = model_path
+    def __init__(self, tokenizer_path):
+        self.tokenizer_path = tokenizer_path
 
     def encode(self, text):
         raise NotImplementedError("This method should be overridden by subclasses.")
@@ -56,7 +57,7 @@ class TiktokenWrapper(TokenizerInterface):
 
     pat_str = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"  # noqa: E501
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, dialogue: bool = False, system_prompt: str = ''):
         super().__init__(model_path)
         assert os.path.isfile(model_path), str(model_path)
         mergeable_ranks = load_tiktoken_bpe(str(model_path))
@@ -88,11 +89,21 @@ class TiktokenWrapper(TokenizerInterface):
         # BOS / EOS token IDs
         self._bos_id: int = self.special_tokens["<|begin_of_text|>"]
         self._eos_id: int = self.special_tokens["<|end_of_text|>"]
+        self._eot_id: int = self.special_tokens["<|eot_id|>"]
 
-    def encode(self, text, bos=True):
-        tokens = self.model.encode(text)
-        if bos:
-            tokens = [self.bos_id()] + tokens
+        self.dialogue = dialogue
+        if self.dialogue:
+            if len(system_prompt) == 0:
+                system_prompt = 'You are a helpful AI assistant'
+            self.template = '<|start_header_id|>system<|end_header_id|>\n\n' \
+                            + system_prompt \
+                            + '<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n' \
+                            + '{}<|eot_id|><|start_header_id|>assistant<|end_header_id|>'
+
+    def encode(self, text):
+        if self.dialogue:
+            text = self.template.format(text)
+        tokens = [self._bos_id] + self.model.encode(text, allowed_special='all')
         return torch.tensor(tokens, dtype=torch.int)
 
     def decode(self, tokens):
@@ -104,20 +115,71 @@ class TiktokenWrapper(TokenizerInterface):
     def eos_id(self):
         return self._eos_id
 
+    def eot_id(self):
+        return self._eot_id
 
-def get_tokenizer(tokenizer_model_path, model_name):
-    """
-    Factory function to get the appropriate tokenizer based on the model name.
 
-    Args:
-    - tokenizer_model_path (str): The file path to the tokenizer model.
-    - model_name (str): The name of the model, used to determine the tokenizer type.
+class TiktokenTokenizer(TokenizerInterface):
+    def __init__(self, tokenizer_path: Path, dialogue=False, system_prompt=''):
+        super().__init__(tokenizer_path)
+        self.dialogue = dialogue
+        self.system_prompt = system_prompt
 
-    Returns:
-    - TokenizerInterface: An instance of a tokenizer.
-    """
+        with open(tokenizer_path, 'r', encoding='utf-8') as f:
+            tokenizer_json = json.load(f)
+        with open(tokenizer_path.parent / 'special_tokens_map.json', 'r', encoding='utf-8') as f:
+            special_tokens_json = json.load(f)
 
+        vocab = tokenizer_json['model']['vocab']
+        merges = tokenizer_json['model']['merges']
+        special_tokens = tokenizer_json.get('added_tokens', [])
+        special_tokens_dict = {token['content']: token['id'] for token in special_tokens}
+
+        mergable_ranks = {}
+        for rank, merge in enumerate(merges):
+            b1, b2 = merge.split()
+            mergable_ranks[(b1.encode('utf-8'), b2.encode('utf-8'))] = rank
+
+        vocab = {token: id for token, id in vocab.items() if token not in special_tokens_dict}
+        pat_str = tokenizer_json['model'].get('pattern',
+                                              r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+
+        self.encoding = tiktoken.Encoding(
+            name='custom_bpe',
+            pat_str=pat_str,
+            mergeable_ranks=mergable_ranks,
+            special_tokens=special_tokens_dict
+        )
+
+        self._bos_id = vocab[special_tokens_json['bos_token']]
+        self._eos_id = vocab[special_tokens_json['eos_token']]
+
+        if self.dialogue:
+            if len(system_prompt) == 0:
+                system_prompt = 'You are a helpful AI assistant'
+            self.template = '<|start_header_id|>system<|end_header_id|>\n\n' \
+                            + system_prompt \
+                            + '<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n' \
+                            + '{}<|eot_id|><|start_header_id|>assistant<|end_header_id|>'
+
+    def encode(self, text):
+        if self.dialogue:
+            text = self.template.format(text)
+        tokens = [self._bos_id] + self.encoding.encode(text)
+        return torch.tensor(tokens, dtype=torch.int)
+
+    def decode(self, tokens):
+        return self.encoding.decode(tokens)
+
+    def bos_id(self):
+        return self._bos_id
+
+    def eos_id(self):
+        return self._eos_id
+
+
+def get_tokenizer(tokenizer_model_path, model_name, dialogue: bool = False, system_prompt: str = ''):
     if "llama-3" in str(model_name).lower():
-        return TiktokenWrapper(Path(tokenizer_model_path))
+        return TiktokenWrapper(Path(tokenizer_model_path), dialogue, system_prompt)
     else:
-        return SentencePieceWrapper(tokenizer_model_path)
+        return SentencePieceWrapper(tokenizer_model_path, dialogue, system_prompt)

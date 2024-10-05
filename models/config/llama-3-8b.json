@@ -1,4 +1,5 @@
 {
+  "architecture": "LLaMA",
   "embedding_dim": 4096,
   "num_layers": 32,
   "num_heads": 32,
@@ -6,6 +7,6 @@
   "max_seq_len": 8192,
   "feedforward_dim": 14336,
   "vocab_size": 128256,
-  "norm_eps": 1e-5,
-  "rope_base": 500000
+  "norm_eps": 1e-05,
+  "rope_base": 500000.0
 }

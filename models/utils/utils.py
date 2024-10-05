@@ -1,16 +1,14 @@
 import json
-import os
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
 import random
 import numpy as np
+from pathlib import Path
 
 
 class Config:
-    def __init__(self, config_path):
-        with open(os.path.join(config_path), 'r', encoding='utf-8') as f:
+    def __init__(self, config_path: Path):
+        with open(config_path, 'r', encoding='utf-8') as f:
             self.config = json.load(f)
 
     def __getattr__(self, item):

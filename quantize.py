@@ -1,5 +1,7 @@
+import time
 import torch
-from models.utils import WeightOnlyInt4QuantHandler, WeightOnlyInt8QuantHandler, dynamically_quantize_per_channel, _check_linear_int4_k, find_multiple, prepare_int4_weight_and_scales_and_zeros
+from models.utils import dynamically_quantize_per_channel, _check_linear_int4_k, find_multiple, \
+    prepare_int4_weight_and_scales_and_zeros
 import argparse
 from pathlib import Path
 from models.utils import Config
@@ -13,17 +15,14 @@ def is_linear(name, linear_names):
     return False
 
 
-def main(model_name: str, config_path: Path, checkpoint_path: Path, quantize: str, groupsize: int = 128):
-    if model_name in ['llama_compile', 'transformer', 'bert', 'gpt2']:
-        linear_names = ['linear', 'fc']
-    else:
-        raise
+def main(checkpoint_path: Path, quantize: str, groupsize: int = 128):
+    linear_names = ['linear']
 
     weights = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
     quantized_state_dict = {}
     if quantize == 'int8':
         for name, param in weights.items():
-            if is_linear(name, linear_names):
+            if is_linear(name, linear_names) and name.endswith('weight'):
                 int8_weight, scales, _ = dynamically_quantize_per_channel(param.float(), -128, 127, torch.int8)
                 quantized_state_dict[name] = int8_weight
                 quantized_state_dict[name.replace('weight', 'scales')] = scales.to(param.dtype)
@@ -59,15 +58,16 @@ def main(model_name: str, config_path: Path, checkpoint_path: Path, quantize: st
     else:
         raise
 
+    for name, param in quantized_state_dict.items():
+        print(f'{name} {param.dtype} {param.shape}')
+
     torch.save(quantized_state_dict, checkpoint_path.parent / new_pth_name)
     print(f'Quantized weights saved to {checkpoint_path.parent / new_pth_name}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='llama_compile')
-    parser.add_argument('--config_path', type=str, default='./models/config/llama-3-8b_compile.json')
-    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/Meta-Llama-3-8B/convert/model.pth')
+    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/pythia-2.8b/convert/model.pth')
     parser.add_argument('--quantize', type=str, default='int8', choices=['int8', 'int4'])
 
     # for int4 quantization
@@ -75,4 +75,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(args.model, Path(args.config_path), Path(args.checkpoint_path), args.quantize, groupsize=args.groupsize)
+    main(Path(args.checkpoint_path), args.quantize, groupsize=args.groupsize)

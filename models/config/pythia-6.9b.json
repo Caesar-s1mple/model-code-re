@@ -1,0 +1,13 @@
+{
+  "architecture": "GPTNeoX",
+  "embedding_dim": 4096,
+  "num_layers": 32,
+  "num_heads": 32,
+  "max_seq_len": 2048,
+  "feedforward_dim": 16384,
+  "vocab_size": 50432,
+  "norm_eps": 1e-05,
+  "rope_base": 10000.0,
+  "dropout_rate": 0,
+  "use_parallel_residual": true
+}

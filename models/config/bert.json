@@ -1,4 +1,5 @@
 {
+  "architecture": "Bert",
   "embedding_dim": 512,
   "num_encoder_layers": 6,
   "num_heads": 8,

@@ -131,8 +131,9 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(config.max_seq_len, config.embedding_dim)
         position = torch.arange(0, config.max_seq_len, dtype=torch.float).unsqueeze(1)
-        # 实际transformer代码实现中，这里一般用对数计算进行高效计算，这里的实现和论文对齐（后续会补充其他实现）
+        # 在很多其他transformer代码实现中，这里用对数计算，这里的实现和论文对齐
         div_term = 10000 ** (torch.arange(0, config.embedding_dim, 2).float() / config.embedding_dim)
+        # position -> max_seq_len, 1  div_term -> embedding_dim / 2
         pe[:, 0::2] = torch.sin(position / div_term)
         pe[:, 1::2] = torch.cos(position / div_term)
 
@@ -160,7 +161,7 @@ class MultiheadAttention(nn.Module):
 
     def forward(self, query, key, value, attention_mask=None):
         # attention_mask -> (bs, seq_len_1, seq_len_2)
-        bs = query.size(0)
+        bs, seq_len = query.shape[:2]
 
         query = self.linear_q(query)
         key = self.linear_k(key)
@@ -174,7 +175,7 @@ class MultiheadAttention(nn.Module):
                                                                             2).contiguous()  # (bs, num_heads, seq_len2, head_dim)
 
         attention_score = query @ key.transpose(-2, -1) / math.sqrt(
-            self.embed_dim)  # (bs, num_heads, seq_len_1, seq_len_2)
+            self.head_dim)  # (bs, num_heads, seq_len_1, seq_len_2)
         if attention_mask is not None:
             attention_score.masked_fill_(attention_mask.unsqueeze(1) == 0, -torch.inf)
 

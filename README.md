@@ -13,6 +13,7 @@
     BERT
     VisionTransformer               不包含推理代码
     Llama-3
+    GPT-NEOX
 
 预计在不久加入：
 
