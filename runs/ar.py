@@ -68,7 +68,7 @@ def main(prompt: str, max_new_tokens: int, config_path: Path, checkpoint_path: P
 
     device_sync(device)
 
-    tokenizer = get_tokenizer(checkpoint_path.parent / 'tokenizer.model', model_name='llama-3', dialogue=dialogue, system_prompt=system_prompt)
+    tokenizer = get_tokenizer(checkpoint_path.parent, dialogue=dialogue, system_prompt=system_prompt)
     prompt = tokenizer.encode(prompt).to(device).view(1, -1)
 
     outputs = []

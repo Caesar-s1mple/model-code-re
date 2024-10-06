@@ -19,8 +19,8 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default=default_device)
     parser.add_argument('--use_cache', type=bool, default=True)
     # 模型指定
-    parser.add_argument('--config_path', type=str, default='./models/config/pythia-2.8b.json')
-    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/pythia-2.8b/convert/model_int8.pth')
+    parser.add_argument('--config_path', type=str, default='./models/config/llama-3-8b.json')
+    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/Meta-Llama-3-8B-Instruct/convert/model_int8.pth')
     parser.add_argument('--quantize', type=str, default='int8', choices=[None, 'int8', 'int4'])
     parser.add_argument('--dialogue', type=bool, default=False)
     parser.add_argument('--system_prompt', type=str, default='You are a helpful AI assistant')
