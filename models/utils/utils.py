@@ -1,6 +1,7 @@
 import json
 import torch
 import torch.nn.functional as F
+from torch import Tensor
 import random
 import numpy as np
 from pathlib import Path
@@ -15,13 +16,13 @@ class Config:
         return self.config.get(item, None)
 
 
-def sample(probs: torch.Tensor, num_samples: int = 1):
+def sample(probs: Tensor, num_samples: int = 1):
     idx = torch.multinomial(probs.view(-1, probs.size(-1)), num_samples=num_samples)
 
     return idx
 
 
-def norm_logits(logits: torch.Tensor, temperature: float = 1, top_k: int = 0, top_p: float = 0.):
+def norm_logits(logits: Tensor, temperature: float = 1, top_k: int = 0, top_p: float = 0.):
     logits = logits / temperature
     if top_k > 0:
         filter = torch.topk(logits, min(top_k, logits.size(-1)))[0]

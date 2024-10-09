@@ -67,7 +67,7 @@ def main(checkpoint_path: Path, quantize: str, groupsize: int = 128):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/pythia-2.8b/convert/model.pth')
+    parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/pythia-160m/convert/model.pth')
     parser.add_argument('--quantize', type=str, default='int8', choices=['int8', 'int4'])
 
     # for int4 quantization

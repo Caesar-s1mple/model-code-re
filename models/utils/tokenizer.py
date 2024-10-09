@@ -79,6 +79,7 @@ class TiktokenTokenizer(TokenizerInterface):
 
         self._bos_id = special_tokens_dict[special_tokens_json['bos_token']]
         self._eos_id = special_tokens_dict[special_tokens_json['eos_token']]
+        self._eot_id = special_tokens_dict.get('<|eot_id|>', None)
 
         if self.dialogue:
             if len(system_prompt) == 0:
@@ -91,7 +92,7 @@ class TiktokenTokenizer(TokenizerInterface):
     def encode(self, text):
         if self.dialogue:
             text = self.template.format(text)
-        tokens = [self._bos_id] + self.encoding.encode(text)
+        tokens = [self._bos_id] + self.encoding.encode(text, allowed_special='all')
         return torch.tensor(tokens, dtype=torch.int)
 
     def decode(self, tokens):
@@ -102,6 +103,9 @@ class TiktokenTokenizer(TokenizerInterface):
 
     def eos_id(self):
         return self._eos_id
+
+    def eot_id(self):
+        return self._eot_id
 
 
 def bytes_to_unicode():

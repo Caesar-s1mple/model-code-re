@@ -126,14 +126,12 @@ class GroupedMultiQueryAttention(nn.Module):
 
         query, key, value = self.linear_qkv(x).split([self.embedding_dim, self.kv_dim, self.kv_dim], dim=-1)
 
-        query = query.view(bs, seq_len, self.num_heads, self.head_dim)
-        key = key.view(bs, seq_len, self.num_kv_heads, self.head_dim)
-        value = value.view(bs, seq_len, self.num_kv_heads, self.head_dim)
+        query = query.view(bs, seq_len, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        key = key.view(bs, seq_len, self.num_kv_heads, self.head_dim).permute(0, 2, 1, 3)
+        value = value.view(bs, seq_len, self.num_kv_heads, self.head_dim).permute(0, 2, 1, 3)
 
         query = apply_rotate_emb(query, freqs_cis)
         key = apply_rotate_emb(key, freqs_cis)
-
-        query, key, value = map(lambda a: a.transpose(1, 2), (query, key, value))
 
         if self.kv_cache:
             key, value = self.kv_cache.update(key, value)  # bs, num_kv_heads, seq_len, head_dim
@@ -144,7 +142,7 @@ class GroupedMultiQueryAttention(nn.Module):
         value = value.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
 
         attention_score = query @ key.transpose(-2, -1) / math.sqrt(self.head_dim)
-        attention_score.masked_fill_(attention_mask == 0, -torch.inf)
+        attention_score.masked_fill_(~attention_mask, -torch.inf)
 
         attention_score = torch.softmax(attention_score, dim=-1)
         output = attention_score @ value
@@ -209,22 +207,21 @@ def apply_rope_scaling(freqs: Tensor, rope_scaling: Optional[dict] = None):
     return torch.tensor(new_freqs, dtype=freqs.dtype, device=freqs.device)
 
 
-def precompute_freqs_cis(max_seq_len: int, embedding_dim: int, base: int = 10000, dtype: torch.dtype = torch.bfloat16,
+def precompute_freqs_cis(max_seq_len: int, dim: int, base: int = 10000, dtype: torch.dtype = torch.bfloat16,
                          rope_scaling: Optional[dict] = None) -> Tensor:
-    freqs = 1. / (base ** (torch.arange(0, embedding_dim, 2).float() / embedding_dim))
+    freqs = 1. / (base ** (torch.arange(0, dim, 2).float() / dim))
     if rope_scaling is not None:
         freqs = apply_rope_scaling(freqs, rope_scaling)
     position = torch.arange(0, max_seq_len, dtype=torch.float)
-    # position -> max_seq_len, 1  freqs -> embedding_dim / 2
+    # position -> max_seq_len, 1  freqs -> dim / 2
     freqs = torch.outer(position, freqs)
-    freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
-    cache = torch.stack([freqs_cis.real, freqs_cis.imag], dim=-1)
-    return cache.to(dtype=dtype)  # max_seq_len, dim // 2, 2
+    freqs_cis = torch.stack([freqs.cos(), freqs.sin()], dim=-1)
+    return freqs_cis.to(dtype=dtype)  # max_seq_len, dim // 2, 2
 
 
 def apply_rotate_emb(x: Tensor, freqs_cis):
-    xshaped = x.float().reshape(*x.shape[:-1], -1, 2)  # bs, seq_len, num_heads, dim / 2, 2
-    freqs_cis = freqs_cis.view(1, xshaped.size(1), 1, xshaped.size(3), 2)
+    xshaped = x.float().reshape(*x.shape[:-1], -1, 2)  # bs, num_heads, seq_len, dim / 2, 2
+    # freqs_cis = freqs_cis.view(1, 1, xshaped.size(3), 2)
     x_out2 = torch.stack(
         [
             xshaped[..., 0] * freqs_cis[..., 0] - xshaped[..., 1] * freqs_cis[..., 1],

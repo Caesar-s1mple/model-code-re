@@ -39,11 +39,12 @@ def convert(hf_repo_path: Path, save_path: Path, weight_map_path: Path):
     shutil.copy(hf_repo_path / 'tokenizer.json', save_path / 'tokenizer.json')
     shutil.copy(hf_repo_path / 'special_tokens_map.json', save_path / 'special_tokens_map.json')
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--hf_repo_path', type=str, default='./checkpoints/pythia-2.8b')
-    parser.add_argument('--save_path', type=str, default='./checkpoints/pythia-2.8b/convert')
+    parser.add_argument('--hf_repo_path', type=str, default='./checkpoints/pythia-6.9b')
+    parser.add_argument('--save_path', type=str, default='./checkpoints/pythia-6.9b/convert')
     parser.add_argument('--weight_map_path', type=str, default='./checkpoints/weight_map/pythia.json')
 
     args = parser.parse_args()
