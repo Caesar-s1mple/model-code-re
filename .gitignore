@@ -1,0 +1,32 @@
+# PyCharm
+.idea/
+
+# Models
+*.safetensors
+*.pth
+*.pt
+*.model
+
+# Checkpoints
+/checkpoints/*
+!checkpoints/weight_map/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test scripts
+test*.py
+
+# Datasets
+/benchmark/*
+!/benchmark/specbench.jsonl
+!/benchmark/redpajama/download.sh
+!/benchmark/redpajama/filter.py
+!/benchmark/redpajama/truncate.py
+
+# Others
+/msts/
+*.backup
+/idea/

@@ -1,0 +1,17 @@
+{
+    "model.embed_tokens.weight": "word_embeddings.weight",
+    "model.layers.{}.input_layernorm.weight": "layers.{}.attn_norm.weight",
+    "model.layers.{}.mlp.down_proj.weight": "layers.{}.ff.linear2.weight",
+    "model.layers.{}.mlp.gate_proj.weight": "layers.{}.ff.linear1.weight",
+    "model.layers.{}.mlp.up_proj.weight": "layers.{}.ff.linear3.weight",
+    "model.layers.{}.post_attention_layernorm.weight": "layers.{}.ff_norm.weight",
+    "model.layers.{}.self_attn.q_proj.weight": "layers.{}.self_attn.linear_q.weight",
+    "model.layers.{}.self_attn.q_proj.bias": "layers.{}.self_attn.linear_q.bias",
+    "model.layers.{}.self_attn.k_proj.weight": "layers.{}.self_attn.linear_k.weight",
+    "model.layers.{}.self_attn.k_proj.bias": "layers.{}.self_attn.linear_k.bias",
+    "model.layers.{}.self_attn.v_proj.weight": "layers.{}.self_attn.linear_v.weight",
+    "model.layers.{}.self_attn.v_proj.bias": "layers.{}.self_attn.linear_v.bias",
+    "model.layers.{}.self_attn.o_proj.weight": "layers.{}.self_attn.linear.weight",
+    "model.norm.weight": "norm.weight",
+    "lm_head.weight": "linear.weight"
+}

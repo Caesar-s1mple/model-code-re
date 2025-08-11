@@ -1,0 +1,18 @@
+{
+    "gpt_neox.embed_in.weight": "word_embeddings.weight",
+    "gpt_neox.layers.{}.attention.query_key_value.weight": "layers.{}.self_attn.linear_qkv.weight",
+    "gpt_neox.layers.{}.attention.query_key_value.bias": "layers.{}.self_attn.linear_qkv.bias",
+    "gpt_neox.layers.{}.attention.dense.weight": "layers.{}.self_attn.linear.weight",
+    "gpt_neox.layers.{}.attention.dense.bias": "layers.{}.self_attn.linear.bias",
+    "gpt_neox.layers.{}.mlp.dense_h_to_4h.weight": "layers.{}.ff.linear1.weight",
+    "gpt_neox.layers.{}.mlp.dense_h_to_4h.bias": "layers.{}.ff.linear1.bias",
+    "gpt_neox.layers.{}.mlp.dense_4h_to_h.weight": "layers.{}.ff.linear2.weight",
+    "gpt_neox.layers.{}.mlp.dense_4h_to_h.bias": "layers.{}.ff.linear2.bias",
+    "gpt_neox.layers.{}.post_attention_layernorm.weight": "layers.{}.attn_norm.weight",
+    "gpt_neox.layers.{}.post_attention_layernorm.bias": "layers.{}.attn_norm.bias",
+    "gpt_neox.layers.{}.input_layernorm.weight": "layers.{}.ff_norm.weight",
+    "gpt_neox.layers.{}.input_layernorm.bias": "layers.{}.ff_norm.bias",
+    "gpt_neox.final_layer_norm.weight": "norm.weight",
+    "gpt_neox.final_layer_norm.bias": "norm.bias",
+    "embed_out.weight": "linear.weight"
+}
